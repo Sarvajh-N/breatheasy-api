@@ -115,34 +115,6 @@ module.exports = function handler(req, res) {
       : ['Secondhand smoke exposure', 'Radon exposure', 'Excessive vaping', 'Lung diseases like COPD or pulmonary fibrosis'];
   }
 
-  // --- Verified sources (ranked by trust) ---
-  result.verified_sources = [
-    {
-      rank: 1,
-      name: 'ACR Lung Cancer Screening Locator',
-      url: 'https://www.acr.org/Clinical-Resources/Lung-Cancer-Screening-Resources/LCS-Locator-Tool',
-      description: isEs ? 'Estándar de oro — centros designados por el ACR' : 'Gold standard — ACR-designated screening centers'
-    },
-    {
-      rank: 2,
-      name: 'ACR Accredited Facility Search',
-      url: 'https://www.acraccreditation.org/accredited-facility-search',
-      description: isEs ? 'Instalaciones acreditadas por el ACR para CT' : 'ACR-accredited CT facilities'
-    },
-    {
-      rank: 3,
-      name: 'American Cancer Society',
-      url: 'https://www.cancer.org/cancer/types/lung-cancer/detection-diagnosis-staging/detection.html',
-      description: isEs ? 'Guía de detección de la Sociedad Americana del Cáncer' : 'ACS screening guide'
-    },
-    {
-      rank: 4,
-      name: 'American Lung Association — Saved by the Scan',
-      url: 'https://www.lung.org/lung-health-diseases/lung-disease-lookup/lung-cancer/saved-by-the-scan',
-      description: isEs ? 'Programa de detección de la Asociación Americana del Pulmón' : 'ALA screening program'
-    }
-  ];
-
   // --- Call script ---
   if (eligible) {
     result.call_script = isEs

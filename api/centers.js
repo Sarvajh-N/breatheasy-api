@@ -109,43 +109,7 @@ module.exports = function handler(req, res) {
     // Sort by distance
     nearby.sort(function(a, b) { return a.distance_miles - b.distance_miles; });
 
-    // Verified source links
-    var verified_sources = [
-      {
-        rank: 1,
-        name: 'ACR Lung Cancer Screening Locator',
-        url: 'https://www.acr.org/Clinical-Resources/Lung-Cancer-Screening-Resources/LCS-Locator-Tool',
-        description: isEs
-          ? 'Busque más centros designados por el ACR por código postal.'
-          : 'Search for more ACR-designated centers by zip code.'
-      },
-      {
-        rank: 2,
-        name: 'ACR Accredited Facility Search',
-        url: 'https://www.acraccreditation.org/accredited-facility-search',
-        description: isEs
-          ? 'Instalaciones acreditadas por el ACR para CT.'
-          : 'ACR-accredited CT facilities.'
-      },
-      {
-        rank: 3,
-        name: 'American Cancer Society',
-        url: 'https://www.cancer.org/cancer/types/lung-cancer/detection-diagnosis-staging/detection.html',
-        description: isEs
-          ? 'Guía de detección de la Sociedad Americana del Cáncer.'
-          : 'ACS screening guide.'
-      },
-      {
-        rank: 4,
-        name: 'American Lung Association — Saved by the Scan',
-        url: 'https://www.lung.org/lung-health-diseases/lung-disease-lookup/lung-cancer/saved-by-the-scan',
-        description: isEs
-          ? 'Programa de detección de la Asociación Americana del Pulmón.'
-          : 'ALA screening program.'
-      }
-    ];
-
-    // Google Maps
+    // Google Maps fallback
     var googleMapsLink = 'https://www.google.com/maps/search/' +
       encodeURIComponent('lung cancer screening center near ' + zip);
 
@@ -187,16 +151,15 @@ module.exports = function handler(req, res) {
       radius_miles: radius,
       centers_found: nearby.length,
       centers: nearby,
-      verified_sources: verified_sources,
       google_maps_link: googleMapsLink,
       call_script: call_script,
       note: isEs
         ? nearby.length > 0
-          ? 'Centros de detección encontrados cerca de su código postal. Use las fuentes verificadas para encontrar más.'
-          : 'No se encontraron centros en nuestra base de datos para este código postal. Use las fuentes verificadas o Google Maps.'
+          ? 'Centros de detección encontrados cerca de su código postal.'
+          : 'No se encontraron centros en nuestra base de datos para este código postal. Use el enlace de Google Maps para buscar.'
         : nearby.length > 0
-          ? 'Screening centers found near your zip code. Use verified sources to find more.'
-          : 'No centers in our database for this zip code yet. Use the verified sources or Google Maps to find centers.'
+          ? 'Screening centers found near your zip code.'
+          : 'No centers in our database for this zip code yet. Use the Google Maps link to search.'
     });
   }).catch(function() {
     return res.status(400).json({
