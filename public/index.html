@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BreatheEasy API — Documentation & Live Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace; background: #0f172a; color: #e2e8f0; line-height: 1.6; }
+    .container { max-width: 800px; margin: 0 auto; padding: 24px; }
+    h1 { font-size: 2rem; color: #10b981; margin-bottom: 4px; }
+    .subtitle { color: #64748b; margin-bottom: 32px; }
+    h2 { font-size: 1.2rem; color: #10b981; margin: 32px 0 12px; border-bottom: 1px solid #1e293b; padding-bottom: 8px; }
+    h3 { font-size: 1rem; color: #94a3b8; margin: 16px 0 8px; }
+
+    .endpoint { background: #1e293b; border-radius: 12px; padding: 20px; margin: 16px 0; border: 1px solid #334155; }
+    .method { display: inline-block; background: #10b981; color: #0f172a; font-weight: 700; padding: 2px 10px; border-radius: 4px; font-size: 0.85rem; margin-right: 8px; }
+    .path { color: #f1f5f9; font-weight: 600; }
+    .desc { color: #94a3b8; font-size: 0.9rem; margin-top: 8px; }
+
+    pre { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 16px; overflow-x: auto; font-size: 0.85rem; margin: 8px 0; }
+    code { color: #a5f3fc; }
+    .key { color: #10b981; }
+    .str { color: #fbbf24; }
+    .num { color: #818cf8; }
+    .bool { color: #f472b6; }
+
+    .test-section { background: #1e293b; border-radius: 12px; padding: 24px; margin: 24px 0; border: 2px solid #10b981; }
+    label { display: block; color: #94a3b8; font-size: 0.85rem; margin: 10px 0 4px; }
+    input, select { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #e2e8f0; font-size: 1rem; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    button { background: #10b981; color: #0f172a; font-weight: 700; font-size: 1rem; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; margin-top: 16px; width: 100%; }
+    button:hover { background: #059669; }
+    button.secondary { background: #334155; color: #e2e8f0; }
+    button.secondary:hover { background: #475569; }
+
+    #result { margin-top: 16px; white-space: pre-wrap; word-break: break-word; }
+    .badge { display: inline-block; background: #065f46; color: #10b981; font-size: 0.75rem; padding: 2px 8px; border-radius: 4px; margin-left: 8px; }
+    .note { background: #1a1a2e; border-left: 3px solid #10b981; padding: 12px 16px; margin: 16px 0; font-size: 0.85rem; color: #94a3b8; }
+    a { color: #10b981; }
+    .footer { text-align: center; color: #475569; font-size: 0.8rem; margin-top: 48px; padding: 24px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>BreatheEasy API</h1>
+    <p class="subtitle">Lung cancer screening eligibility + referral PDF generation</p>
+
+    <div class="note">
+      This API implements the <strong>USPSTF 2021 Grade B Recommendation</strong> for lung cancer screening.
+      It checks eligibility, returns billing codes (CPT/ICD-10), and generates physician referral PDFs.
+      Bilingual (English/Spanish). No data stored. Free to use.
+    </div>
+
+    <!-- ENDPOINT: Eligibility -->
+    <h2>Endpoints</h2>
+
+    <div class="endpoint">
+      <span class="method">POST</span>
+      <span class="path">/api/eligibility</span>
+      <p class="desc">Check if a patient meets USPSTF 2021 screening criteria. Returns eligibility result + billing codes.</p>
+      <h3>Request Body</h3>
+      <pre><code>{
+  <span class="key">"age"</span>: <span class="num">55</span>,
+  <span class="key">"cigarettes_per_day"</span>: <span class="num">20</span>,
+  <span class="key">"years_smoked"</span>: <span class="num">30</span>,
+  <span class="key">"quit_years"</span>: <span class="num">5</span>,
+  <span class="key">"lang"</span>: <span class="str">"en"</span>
+}</code></pre>
+      <h3>Response (Eligible)</h3>
+      <pre><code>{
+  <span class="key">"eligible"</span>: <span class="bool">true</span>,
+  <span class="key">"pack_years_calculated"</span>: <span class="num">30</span>,
+  <span class="key">"billing_codes"</span>: {
+    <span class="key">"cpt"</span>: <span class="str">"71271"</span>,
+    <span class="key">"icd10"</span>: [<span class="str">"Z87.891"</span>, <span class="str">"Z12.2"</span>],
+    <span class="key">"modifier"</span>: <span class="str">"33"</span>
+  },
+  <span class="key">"cost"</span>: <span class="str">"$0 under ACA"</span>
+}</code></pre>
+    </div>
+
+    <div class="endpoint">
+      <span class="method">POST</span>
+      <span class="path">/api/referral</span>
+      <p class="desc">Generate a physician referral PDF with CPT/ICD-10 billing codes. Only works for eligible patients.</p>
+      <h3>Additional Fields</h3>
+      <pre><code>{
+  <span class="key">"format"</span>: <span class="str">"base64"</span>  // or <span class="str">"binary"</span> (default — returns PDF file)
+}</code></pre>
+    </div>
+
+    <div class="endpoint">
+      <span class="method">GET</span>
+      <span class="path">/api</span>
+      <p class="desc">API documentation — returns all endpoints, guidelines, and billing codes as JSON.</p>
+    </div>
+
+    <!-- LIVE TEST -->
+    <h2>Live API Test</h2>
+
+    <div class="test-section">
+      <h3 style="color:#10b981; margin-top:0;">Try it now</h3>
+      <div class="row">
+        <div>
+          <label>Age</label>
+          <input type="number" id="t-age" value="55" min="1" max="120">
+        </div>
+        <div>
+          <label>Cigarettes Per Day</label>
+          <input type="number" id="t-cigs" value="20" min="0">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Years Smoked</label>
+          <input type="number" id="t-years" value="30" min="0">
+        </div>
+        <div>
+          <label>Years Since Quitting (0 = still smoking)</label>
+          <input type="number" id="t-quit" value="5" min="0">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Language</label>
+          <select id="t-lang">
+            <option value="en">English</option>
+            <option value="es">Spanish</option>
+          </select>
+        </div>
+        <div></div>
+      </div>
+      <button onclick="testEligibility()">Check Eligibility</button>
+      <button class="secondary" onclick="testReferral()">Download Referral PDF</button>
+      <pre id="result"><code>← Click a button to test the API</code></pre>
+    </div>
+
+    <h2>Integration Example</h2>
+    <div class="endpoint">
+      <h3>For any website — one fetch call:</h3>
+      <pre><code><span class="key">fetch</span>(<span class="str">'https://breatheasy-api.vercel.app/api/eligibility'</span>, {
+  <span class="key">method</span>: <span class="str">'POST'</span>,
+  <span class="key">headers</span>: { <span class="str">'Content-Type'</span>: <span class="str">'application/json'</span> },
+  <span class="key">body</span>: JSON.stringify({
+    age: <span class="num">55</span>,
+    cigarettes_per_day: <span class="num">20</span>,
+    years_smoked: <span class="num">30</span>,
+    quit_years: <span class="num">5</span>
+  })
+})
+.then(r => r.json())
+.then(data => {
+  if (data.eligible) {
+    alert(<span class="str">'Eligible! CPT: '</span> + data.billing_codes.cpt);
+  }
+});</code></pre>
+    </div>
+
+    <div class="footer">
+      BreatheEasy API &middot; ALCSI Innovation Challenge 2026 &middot; Sarvajh Nadadur<br>
+      <a href="https://sarvajh-n.github.io/BreatheEasy-Initiative">BreatheEasy App</a>
+    </div>
+  </div>
+
+  <script>
+    var API_BASE = window.location.origin;
+
+    function getInputs() {
+      return {
+        age: parseInt(document.getElementById('t-age').value),
+        cigarettes_per_day: parseInt(document.getElementById('t-cigs').value),
+        years_smoked: parseInt(document.getElementById('t-years').value),
+        quit_years: parseInt(document.getElementById('t-quit').value),
+        lang: document.getElementById('t-lang').value
+      };
+    }
+
+    function testEligibility() {
+      var result = document.getElementById('result');
+      result.innerHTML = '<code>Calling POST /api/eligibility...</code>';
+
+      fetch(API_BASE + '/api/eligibility', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(getInputs())
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        result.innerHTML = '<code>' + syntaxHighlight(JSON.stringify(data, null, 2)) + '</code>';
+      })
+      .catch(function(err) {
+        result.innerHTML = '<code style="color:#ef4444;">Error: ' + err.message + '</code>';
+      });
+    }
+
+    function testReferral() {
+      var result = document.getElementById('result');
+      result.innerHTML = '<code>Calling POST /api/referral...</code>';
+
+      var inputs = getInputs();
+      inputs.format = 'binary';
+
+      fetch(API_BASE + '/api/referral', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(inputs)
+      })
+      .then(function(r) {
+        if (!r.ok) return r.json().then(function(d) { throw new Error(d.message); });
+        return r.blob();
+      })
+      .then(function(blob) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'BreatheEasy_Physician_Referral.pdf';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        result.innerHTML = '<code style="color:#10b981;">PDF downloaded successfully!</code>';
+      })
+      .catch(function(err) {
+        result.innerHTML = '<code style="color:#ef4444;">Error: ' + err.message + '</code>';
+      });
+    }
+
+    function syntaxHighlight(json) {
+      return json.replace(/(".*?")\s*:/g, '<span class="key">$1</span>:')
+        .replace(/:\s*(".*?")/g, ': <span class="str">$1</span>')
+        .replace(/:\s*(true|false)/g, ': <span class="bool">$1</span>')
+        .replace(/:\s*(\d+\.?\d*)/g, ': <span class="num">$1</span>');
+    }
+  </script>
+</body>
+</html>

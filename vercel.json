@@ -1,0 +1,9 @@
+{
+  "rewrites": [
+    { "source": "/api", "destination": "/api/index" },
+    { "source": "/api/eligibility", "destination": "/api/eligibility" },
+    { "source": "/api/referral", "destination": "/api/referral" },
+    { "source": "/api/screen", "destination": "/api/screen" },
+    { "source": "/api/centers", "destination": "/api/centers" }
+  ]
+}
