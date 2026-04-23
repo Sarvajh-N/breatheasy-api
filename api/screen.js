@@ -2,11 +2,9 @@
 // BreatheEasy API — Screen Endpoint (All-in-One)
 // =============================================
 // POST /api/screen
-// Combines eligibility check + nearby centers
+// Combines eligibility check + verified center sources
 // in a single call for convenience
 // =============================================
-
-var https = require('https');
 
 module.exports = function handler(req, res) {
   // CORS — allow any website to call this API
@@ -65,6 +63,8 @@ module.exports = function handler(req, res) {
     });
   }
 
+  var isEs = lang === 'es';
+
   // --- USPSTF 2021 eligibility logic ---
   var packYears = (cigarettesPerDay / 20) * yearsSmoked;
   var ageOk = age >= 50 && age <= 80;
@@ -72,7 +72,7 @@ module.exports = function handler(req, res) {
   var quitOk = quitYears <= 15;
   var eligible = ageOk && packOk && quitOk;
 
-  // --- Build eligibility result ---
+  // --- Build result ---
   var result = {
     eligible: eligible,
     criteria_met: {
@@ -95,48 +95,58 @@ module.exports = function handler(req, res) {
       modifier: '33',
       modifier_description: 'Preventive service'
     };
-    result.cost = lang === 'es'
+    result.cost = isEs
       ? '$0 bajo la ACA — sin copago, sin deducible para adultos elegibles'
       : '$0 under ACA — no copay, no deductible for eligible adults';
-    result.next_steps = lang === 'es'
+    result.next_steps = isEs
       ? ['Descargue el PDF de referencia', 'Encuentre un centro de detección cercano', 'Lleve el PDF a su cita médica']
       : ['Download referral PDF', 'Find a nearby screening center', 'Bring the PDF to your doctor appointment'];
   } else {
     var reasons = [];
-    var reasonsEs = [];
-    if (!ageOk) {
-      reasons.push('Age must be 50-80 (yours: ' + age + ')');
-      reasonsEs.push('La edad debe ser 50-80 (la suya: ' + age + ')');
-    }
-    if (!packOk) {
-      reasons.push('Need 20+ pack-years (yours: ' + result.pack_years_calculated + ')');
-      reasonsEs.push('Se necesitan 20+ paquetes-año (los suyos: ' + result.pack_years_calculated + ')');
-    }
-    if (!quitOk) {
-      reasons.push('Must have quit within 15 years (yours: ' + quitYears + ')');
-      reasonsEs.push('Debe haber dejado de fumar en los últimos 15 años (los suyos: ' + quitYears + ')');
-    }
-    result.reasons_not_eligible = lang === 'es' ? reasonsEs : reasons;
-    result.message = lang === 'es'
+    if (!ageOk) reasons.push(isEs ? 'La edad debe ser 50-80 (la suya: ' + age + ')' : 'Age must be 50-80 (yours: ' + age + ')');
+    if (!packOk) reasons.push(isEs ? 'Se necesitan 20+ paquetes-año (los suyos: ' + result.pack_years_calculated + ')' : 'Need 20+ pack-years (yours: ' + result.pack_years_calculated + ')');
+    if (!quitOk) reasons.push(isEs ? 'Debe haber dejado de fumar en los últimos 15 años (los suyos: ' + quitYears + ')' : 'Must have quit within 15 years (yours: ' + quitYears + ')');
+    result.reasons_not_eligible = reasons;
+    result.message = isEs
       ? 'No cumple los criterios actuales de la USPSTF, pero consulte a su médico si tiene factores de riesgo.'
       : 'Does not meet current USPSTF criteria, but consult your doctor if you have risk factors.';
-    result.risk_factors = lang === 'es'
+    result.risk_factors = isEs
       ? ['Exposición al humo de segunda mano', 'Exposición al radón', 'Vapeo excesivo', 'Enfermedades pulmonares como EPOC o fibrosis pulmonar']
       : ['Secondhand smoke exposure', 'Radon exposure', 'Excessive vaping', 'Lung diseases like COPD or pulmonary fibrosis'];
   }
 
-  // --- Verified source links ---
-  result.sources = {
-    acr_locator: 'https://www.acr.org/Clinical-Resources/Lung-Cancer-Screening-Resources/LCS-Locator-Tool',
-    acr_accreditation: 'https://www.acraccreditation.org/modalities/ct',
-    acs_guidelines: 'https://www.cancer.org/cancer/types/lung-cancer/detection-diagnosis-staging/detection.html',
-    uspstf: 'https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/lung-cancer-screening'
-  };
+  // --- Verified sources (ranked by trust) ---
+  result.verified_sources = [
+    {
+      rank: 1,
+      name: 'ACR Lung Cancer Screening Locator',
+      url: 'https://www.acr.org/Clinical-Resources/Lung-Cancer-Screening-Resources/LCS-Locator-Tool',
+      description: isEs ? 'Estándar de oro — centros designados por el ACR' : 'Gold standard — ACR-designated screening centers'
+    },
+    {
+      rank: 2,
+      name: 'ACR Accredited Facility Search',
+      url: 'https://www.acraccreditation.org/accredited-facility-search',
+      description: isEs ? 'Instalaciones acreditadas por el ACR para CT' : 'ACR-accredited CT facilities'
+    },
+    {
+      rank: 3,
+      name: 'American Cancer Society',
+      url: 'https://www.cancer.org/cancer/types/lung-cancer/detection-diagnosis-staging/detection.html',
+      description: isEs ? 'Guía de detección de la Sociedad Americana del Cáncer' : 'ACS screening guide'
+    },
+    {
+      rank: 4,
+      name: 'American Lung Association — Saved by the Scan',
+      url: 'https://www.lung.org/lung-health-diseases/lung-disease-lookup/lung-cancer/saved-by-the-scan',
+      description: isEs ? 'Programa de detección de la Asociación Americana del Pulmón' : 'ALA screening program'
+    }
+  ];
 
   // --- Call script ---
   if (eligible) {
-    result.call_script = lang === 'es'
-      ? 'Hola, me gustaría programar una tomografía computarizada de baja dosis para detección de cáncer de pulmón. '
+    result.call_script = isEs
+      ? 'Hola, me gustaría programar una tomografía de baja dosis para detección de cáncer de pulmón. '
         + 'Cumplo con los criterios de la USPSTF. Mi código CPT es 71271, diagnósticos Z87.891 y Z12.2, modificador 33. '
         + 'Esto debería estar cubierto al 100% bajo la ACA sin copago ni deducible. '
         + '¿Pueden verificar mi cobertura y programar una cita?'
@@ -145,100 +155,23 @@ module.exports = function handler(req, res) {
         + 'This should be covered at 100% under the ACA with no copay or deductible. '
         + 'Can you verify my coverage and schedule an appointment?';
   } else {
-    result.call_script = lang === 'es'
+    result.call_script = isEs
       ? 'Hola, me gustaría hablar con mi médico sobre la detección de cáncer de pulmón. '
-        + 'No cumplo con todos los criterios de la USPSTF actualmente, pero tengo factores de riesgo y me gustaría discutir mis opciones.'
+        + 'Tengo factores de riesgo y me gustaría discutir mis opciones.'
       : 'Hi, I would like to talk to my doctor about lung cancer screening. '
-        + 'I do not currently meet all USPSTF criteria, but I have risk factors and would like to discuss my options.';
+        + 'I have risk factors and would like to discuss my options.';
   }
 
-  // --- Referral PDF URL ---
+  // --- Referral PDF ---
   result.referral_pdf_url = '/api/referral';
-  result.referral_pdf_note = lang === 'es'
-    ? 'Envíe una solicitud POST a /api/referral con los mismos datos para generar un PDF de referencia.'
+  result.referral_pdf_note = isEs
+    ? 'Envíe POST a /api/referral con los mismos datos para generar un PDF de referencia.'
     : 'POST the same body to /api/referral to generate a referral PDF.';
 
-  // --- If no zip provided, return without centers ---
-  if (!zip) {
-    result.centers = null;
-    result.centers_note = lang === 'es'
-      ? 'Proporcione un código postal (zip) para encontrar centros de detección cercanos.'
-      : 'Provide a zip code to find nearby screening centers.';
-    return res.status(200).json(result);
+  // --- Google Maps (if zip provided) ---
+  if (zip) {
+    result.google_maps_search = 'https://www.google.com/maps/search/' + encodeURIComponent('lung cancer screening center near ' + zip);
   }
 
-  // --- Google Maps search link ---
-  result.google_maps_search = 'https://www.google.com/maps/search/lung+cancer+screening+center+near+' + zip;
-
-  // --- Fetch nearby radiology facilities from NPI Registry ---
-  var npiUrl = 'https://npiregistry.cms.hhs.gov/api/?version=2.1'
-    + '&taxonomy_description=radiology'
-    + '&postal_code=' + encodeURIComponent(zip)
-    + '&limit=10'
-    + '&enumeration_type=NPI-2';
-
-  fetchNPI(npiUrl, function (err, facilities) {
-    if (err) {
-      result.centers = [];
-      result.centers_error = lang === 'es'
-        ? 'No se pudo consultar el registro NPI. Intente de nuevo más tarde.'
-        : 'Could not query NPI registry. Please try again later.';
-      return res.status(200).json(result);
-    }
-
-    result.centers = facilities;
-    result.centers_count = facilities.length;
-
-    if (facilities.length === 0) {
-      result.centers_note = lang === 'es'
-        ? 'No se encontraron centros de radiología cerca del código postal ' + zip + '. Pruebe con un código postal diferente o use el enlace de Google Maps.'
-        : 'No radiology facilities found near ZIP ' + zip + '. Try a different ZIP or use the Google Maps link.';
-    }
-
-    return res.status(200).json(result);
-  });
+  return res.status(200).json(result);
 };
-
-// --- Helper: fetch NPI Registry data ---
-function fetchNPI(url, callback) {
-  https.get(url, function (response) {
-    var data = '';
-
-    response.on('data', function (chunk) {
-      data += chunk;
-    });
-
-    response.on('end', function () {
-      try {
-        var parsed = JSON.parse(data);
-        var results = parsed.results || [];
-        var facilities = results.map(function (r) {
-          var address = (r.addresses && r.addresses[0]) || {};
-          var taxonomy = (r.taxonomies && r.taxonomies[0]) || {};
-          var name = '';
-          if (r.basic) {
-            name = r.basic.organization_name || r.basic.name || '';
-          }
-          return {
-            npi: r.number || null,
-            name: name,
-            address: [
-              address.address_1 || '',
-              address.address_2 || '',
-              address.city || '',
-              address.state || '',
-              address.postal_code || ''
-            ].filter(function (s) { return s; }).join(', '),
-            phone: address.telephone_number || null,
-            taxonomy: taxonomy.desc || null
-          };
-        });
-        callback(null, facilities);
-      } catch (e) {
-        callback(e, []);
-      }
-    });
-  }).on('error', function (err) {
-    callback(err, []);
-  });
-}
