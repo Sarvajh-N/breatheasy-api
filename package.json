@@ -4,6 +4,7 @@
   "description": "BreatheEasy API — Lung cancer screening eligibility, referral PDFs, and center lookup",
   "private": true,
   "dependencies": {
-    "jspdf": "^2.5.1"
+    "jspdf": "^2.5.1",
+    "zipcodes": "^8.0.0"
   }
 }

@@ -6,8 +6,7 @@
 // + verified source links + Google Maps + call script
 // =============================================
 
-var https = require('https');
-var path = require('path');
+var zipcodes = require('zipcodes');
 var ALL_CENTERS = require('./centers-data.json');
 
 // --- Haversine distance (miles) ---
@@ -20,36 +19,6 @@ function haversine(lat1, lon1, lat2, lon2) {
   var a = Math.sin(dlat / 2) * Math.sin(dlat / 2) +
     Math.cos(lat1) * Math.cos(lat2) * Math.sin(dlon / 2) * Math.sin(dlon / 2);
   return 2 * R * Math.asin(Math.sqrt(a));
-}
-
-// --- Get coordinates for a zip code via free API ---
-function getZipCoords(zip) {
-  return new Promise(function(resolve, reject) {
-    var url = 'https://api.zippopotam.us/us/' + zip;
-    https.get(url, function(response) {
-      var data = '';
-      response.on('data', function(chunk) { data += chunk; });
-      response.on('end', function() {
-        try {
-          var parsed = JSON.parse(data);
-          if (parsed.places && parsed.places.length > 0) {
-            resolve({
-              lat: parseFloat(parsed.places[0].latitude),
-              lng: parseFloat(parsed.places[0].longitude),
-              city: parsed.places[0]['place name'],
-              state: parsed.places[0]['state abbreviation']
-            });
-          } else {
-            reject(new Error('Zip code not found'));
-          }
-        } catch (e) {
-          reject(new Error('Failed to parse zip code data'));
-        }
-      });
-    }).on('error', function(err) {
-      reject(err);
-    });
-  });
 }
 
 module.exports = function handler(req, res) {
@@ -85,87 +54,88 @@ module.exports = function handler(req, res) {
 
   var isEs = lang === 'es';
 
-  // Look up zip coordinates, then find nearby centers
-  return getZipCoords(zip).then(function(location) {
-    // Calculate distance for each center
-    var nearby = [];
-    ALL_CENTERS.forEach(function(center) {
-      var dist = haversine(location.lat, location.lng, center.lat, center.lng);
-      if (dist <= radius) {
-        nearby.push({
-          name: center.name,
-          address: center.address,
-          city: center.city,
-          state: center.state,
-          zip: center.zip,
-          phone: center.phone,
-          distance_miles: Math.round(dist * 10) / 10,
-          acr_designated: center.acr_designated,
-          source: center.source
-        });
-      }
-    });
-
-    // Sort by distance
-    nearby.sort(function(a, b) { return a.distance_miles - b.distance_miles; });
-
-    // Google Maps fallback
-    var googleMapsLink = 'https://www.google.com/maps/search/' +
-      encodeURIComponent('lung cancer screening center near ' + zip);
-
-    // Call script
-    var call_script;
-    if (isEs) {
-      call_script = {
-        title: 'Qué decir cuando llame',
-        intro: 'Hola, me gustaría programar una tomografía de baja dosis (LDCT) para detección de cáncer de pulmón.',
-        questions: [
-          '¿Aceptan mi seguro médico? Mi plan es [nombre del seguro].',
-          '¿Son un centro designado por el ACR para detección de cáncer de pulmón?',
-          '¿Necesito una orden médica antes de la cita?',
-          '¿Cuál es el costo con el código CPT 71271 y modificador 33?',
-          '¿Cuánto tiempo tardan los resultados?',
-          '¿Cuál es la próxima cita disponible?'
-        ],
-        tip: 'Consejo: Mencione que es detección preventiva bajo USPSTF 2021, cubierta a $0 bajo la ACA.'
-      };
-    } else {
-      call_script = {
-        title: 'What to say when you call',
-        intro: 'Hi, I would like to schedule a low-dose CT scan (LDCT) for lung cancer screening.',
-        questions: [
-          'Do you accept my insurance? My plan is [insurance name].',
-          'Are you an ACR-designated lung cancer screening center?',
-          'Do I need a doctor\'s order or referral before the appointment?',
-          'What is the cost if billed as a preventive service with CPT code 71271 and modifier 33?',
-          'How long does it take to get the results?',
-          'What is the next available appointment?'
-        ],
-        tip: 'Tip: Mention this is a preventive screening under USPSTF 2021 guidelines, covered at $0 under the ACA.'
-      };
-    }
-
-    return res.status(200).json({
-      zip: zip,
-      location: location.city + ', ' + location.state,
-      radius_miles: radius,
-      centers_found: nearby.length,
-      centers: nearby,
-      google_maps_link: googleMapsLink,
-      call_script: call_script,
-      note: isEs
-        ? nearby.length > 0
-          ? 'Centros de detección encontrados cerca de su código postal.'
-          : 'No se encontraron centros en nuestra base de datos para este código postal. Use el enlace de Google Maps para buscar.'
-        : nearby.length > 0
-          ? 'Screening centers found near your zip code.'
-          : 'No centers in our database for this zip code yet. Use the Google Maps link to search.'
-    });
-  }).catch(function() {
+  // Look up zip coordinates locally
+  var location = zipcodes.lookup(zip);
+  if (!location) {
     return res.status(400).json({
       error: true,
       message: isEs ? 'Código postal no encontrado.' : 'Zip code not found. Please enter a valid US zip code.',
       code: 'INVALID_ZIP'
     });
+  }
+
+  // Calculate distance for each center
+  var nearby = [];
+  ALL_CENTERS.forEach(function(center) {
+    var dist = haversine(location.latitude, location.longitude, center.lat, center.lng);
+    if (dist <= radius) {
+      nearby.push({
+        name: center.name,
+        address: center.address,
+        city: center.city,
+        state: center.state,
+        zip: center.zip,
+        phone: center.phone,
+        distance_miles: Math.round(dist * 10) / 10,
+        acr_designated: center.acr_designated,
+        source: center.source
+      });
+    }
+  });
+
+  // Sort by distance
+  nearby.sort(function(a, b) { return a.distance_miles - b.distance_miles; });
+
+  // Google Maps fallback
+  var googleMapsLink = 'https://www.google.com/maps/search/' +
+    encodeURIComponent('lung cancer screening center near ' + zip);
+
+  // Call script
+  var call_script;
+  if (isEs) {
+    call_script = {
+      title: 'Qué decir cuando llame',
+      intro: 'Hola, me gustaría programar una tomografía de baja dosis (LDCT) para detección de cáncer de pulmón.',
+      questions: [
+        '¿Aceptan mi seguro médico? Mi plan es [nombre del seguro].',
+        '¿Son un centro designado por el ACR para detección de cáncer de pulmón?',
+        '¿Necesito una orden médica antes de la cita?',
+        '¿Cuál es el costo con el código CPT 71271 y modificador 33?',
+        '¿Cuánto tiempo tardan los resultados?',
+        '¿Cuál es la próxima cita disponible?'
+      ],
+      tip: 'Consejo: Mencione que es detección preventiva bajo USPSTF 2021, cubierta a $0 bajo la ACA.'
+    };
+  } else {
+    call_script = {
+      title: 'What to say when you call',
+      intro: 'Hi, I would like to schedule a low-dose CT scan (LDCT) for lung cancer screening.',
+      questions: [
+        'Do you accept my insurance? My plan is [insurance name].',
+        'Are you an ACR-designated lung cancer screening center?',
+        'Do I need a doctor\'s order or referral before the appointment?',
+        'What is the cost if billed as a preventive service with CPT code 71271 and modifier 33?',
+        'How long does it take to get the results?',
+        'What is the next available appointment?'
+      ],
+      tip: 'Tip: Mention this is a preventive screening under USPSTF 2021 guidelines, covered at $0 under the ACA.'
+    };
+  }
+
+  return res.status(200).json({
+    zip: zip,
+    location: location.city + ', ' + location.state,
+    radius_miles: radius,
+    centers_found: nearby.length,
+    centers: nearby,
+    google_maps_link: googleMapsLink,
+    call_script: call_script,
+    note: isEs
+      ? nearby.length > 0
+        ? 'Centros de detección encontrados cerca de su código postal.'
+        : 'No se encontraron centros en nuestra base de datos para este código postal. Use el enlace de Google Maps para buscar.'
+      : nearby.length > 0
+        ? 'Screening centers found near your zip code.'
+        : 'No centers in our database for this zip code yet. Use the Google Maps link to search.'
   });
 };
